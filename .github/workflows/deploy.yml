@@ -1,0 +1,41 @@
+name: GitHub Pages へデプロイ
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: Node.js セットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: 依存関係インストール
+        run: npm ci
+        working-directory: client
+
+      - name: ビルド
+        run: npm run build
+        working-directory: client
+        env:
+          # バックエンドのデプロイ先URLをGitHubのSecretに設定してください
+          # 例: https://your-app.onrender.com
+          REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL }}
+
+      - name: GitHub Pages へデプロイ
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./client/build

@@ -67,7 +67,8 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
     try {
       const formData = new FormData();
       formData.append('receipt', file);
-      const response = await axios.post('/api/analyze-receipt', formData, {
+      const apiBase = process.env.REACT_APP_API_URL || '';
+      const response = await axios.post(`${apiBase}/api/analyze-receipt`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setEditableResult({ ...response.data, items: response.data.items?.map((i) => ({ ...i })) || [] });
