@@ -1,43 +1,73 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
-import { CATEGORY_STYLES } from '../constants';
+import { CATEGORY_STYLES, CATEGORIES } from '../constants';
 
-function ReceiptUpload({ onReceiptAdded }) {
+function ReceiptUpload({ onReceiptAdded, receipts }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [result, setResult] = useState(null);
+  // 編集可能な読み取り結果（手修正用）
+  const [editableResult, setEditableResult] = useState(null);
   const fileInputRef = useRef(null);
 
+  // ========== バリデーション ==========
+  const computeWarnings = (data) => {
+    if (!data) return [];
+    const warns = [];
+
+    // 負の金額チェック
+    const negItems = (data.items || []).filter((i) => Number(i.price) < 0);
+    if (negItems.length > 0) {
+      warns.push({
+        type: 'error',
+        message: `金額が負の値の商品があります：${negItems.map((i) => i.name || '(名称不明)').join('、')}`,
+      });
+    }
+
+    // 重複レシートチェック（同一日付 & 同一合計金額）
+    const calcTotal = (data.items || []).reduce((s, i) => s + (Number(i.price) || 0), 0);
+    const dup = (receipts || []).find(
+      (r) => r.date === data.date && r.date && Math.round(r.total) === Math.round(calcTotal)
+    );
+    if (dup) {
+      warns.push({
+        type: 'duplicate',
+        message: `同じ日付・合計金額のレシートが既に登録されています（${data.date}、¥${calcTotal.toLocaleString()}）`,
+      });
+    }
+
+    return warns;
+  };
+
+  // 現在の警告（レンダリング時に毎回計算）
+  const warnings = computeWarnings(editableResult);
+
+  // ========== ファイル選択 ==========
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
     if (!selected) return;
-
     setFile(selected);
     setError('');
-    setResult(null);
-
-    // プレビュー用にBase64変換
+    setEditableResult(null);
     const reader = new FileReader();
     reader.onload = (ev) => setPreview(ev.target.result);
     reader.readAsDataURL(selected);
   };
 
+  // ========== API呼び出し ==========
   const handleUpload = async () => {
     if (!file) return;
-
     setLoading(true);
     setError('');
-
     try {
       const formData = new FormData();
       formData.append('receipt', file);
-
       const response = await axios.post('/api/analyze-receipt', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      setResult(response.data);
+      // 読み取り結果を編集可能な状態にコピー
+      setEditableResult({ ...response.data, items: response.data.items?.map((i) => ({ ...i })) || [] });
     } catch (err) {
       setError(err.response?.data?.error || 'レシートの読み取りに失敗しました。');
     } finally {
@@ -45,19 +75,51 @@ function ReceiptUpload({ onReceiptAdded }) {
     }
   };
 
+  // ========== フィールド更新ハンドラ ==========
+  const updateField = (field, value) =>
+    setEditableResult((prev) => ({ ...prev, [field]: value }));
+
+  const updateItem = (idx, field, value) =>
+    setEditableResult((prev) => ({
+      ...prev,
+      items: prev.items.map((item, i) =>
+        i === idx ? { ...item, [field]: field === 'price' ? value : value } : item
+      ),
+    }));
+
+  const removeItem = (idx) =>
+    setEditableResult((prev) => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== idx),
+    }));
+
+  const addItem = () =>
+    setEditableResult((prev) => ({
+      ...prev,
+      items: [...prev.items, { name: '', price: 0, category: 'その他' }],
+    }));
+
+  // ========== 家計簿に追加 ==========
   const handleAdd = () => {
-    if (!result) return;
-    onReceiptAdded(result);
+    if (!editableResult) return;
+    // 合計はアイテムの合計から自動計算
+    const calcTotal = editableResult.items.reduce((s, i) => s + (Number(i.price) || 0), 0);
+    onReceiptAdded({ ...editableResult, total: calcTotal });
     reset();
   };
 
   const reset = () => {
     setFile(null);
     setPreview(null);
-    setResult(null);
+    setEditableResult(null);
     setError('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  // 合計（アイテムの合計から自動計算）
+  const calcTotal = editableResult
+    ? editableResult.items.reduce((s, i) => s + (Number(i.price) || 0), 0)
+    : 0;
 
   return (
     <div className="upload-container">
@@ -86,52 +148,120 @@ function ReceiptUpload({ onReceiptAdded }) {
         />
 
         {/* 読み取りボタン */}
-        {file && !result && (
+        {file && !editableResult && (
           <button className="btn btn-primary" onClick={handleUpload} disabled={loading}>
             {loading ? '⏳ 読み取り中...' : '🔍 レシートを読み取る'}
           </button>
         )}
 
-        {/* エラー表示 */}
+        {/* 読み取りエラー */}
         {error && <p className="error-message">⚠️ {error}</p>}
 
-        {/* 読み取り結果 */}
-        {result && (
+        {/* ========== 読み取り結果（編集可能） ========== */}
+        {editableResult && (
           <div className="result-card">
-            <h3>✅ 読み取り完了</h3>
-            <div className="result-info">
-              <p><strong>日付：</strong>{result.date || '不明'}</p>
-              <p><strong>店舗：</strong>{result.store || '不明'}</p>
-              <p><strong>合計：</strong>¥{result.total?.toLocaleString() ?? 0}</p>
+            <h3>✅ 読み取り完了 — 内容を確認・修正してください</h3>
+
+            {/* バリデーション警告 */}
+            {warnings.map((w, i) => (
+              <div key={i} className={`validation-warning validation-${w.type}`}>
+                {w.type === 'error' ? '🚨' : '⚠️'} {w.message}
+              </div>
+            ))}
+
+            {/* 日付・店舗の編集 */}
+            <div className="edit-fields">
+              <div className="edit-row">
+                <label>📅 日付</label>
+                <input
+                  type="date"
+                  value={editableResult.date || ''}
+                  onChange={(e) => updateField('date', e.target.value)}
+                  className="edit-input"
+                />
+              </div>
+              <div className="edit-row">
+                <label>🏪 店舗名</label>
+                <input
+                  type="text"
+                  value={editableResult.store || ''}
+                  placeholder="店舗名を入力"
+                  onChange={(e) => updateField('store', e.target.value)}
+                  className="edit-input"
+                />
+              </div>
             </div>
 
-            <h4>商品一覧</h4>
+            {/* 商品一覧（編集可能） */}
+            <div className="edit-table-header">
+              <h4>商品一覧</h4>
+              <button className="btn btn-secondary btn-sm" onClick={addItem}>
+                ＋ 行を追加
+              </button>
+            </div>
+
             <table className="items-table">
               <thead>
                 <tr>
                   <th>商品名</th>
                   <th>金額</th>
                   <th>カテゴリ</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
-                {result.items?.map((item, idx) => (
+                {editableResult.items.map((item, idx) => (
                   <tr key={idx}>
-                    <td>{item.name}</td>
-                    <td>¥{item.price?.toLocaleString()}</td>
                     <td>
-                      <span
-                        className="category-badge"
+                      <input
+                        type="text"
+                        value={item.name || ''}
+                        placeholder="商品名"
+                        onChange={(e) => updateItem(idx, 'name', e.target.value)}
+                        className="edit-input edit-input-name"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        value={item.price ?? ''}
+                        onChange={(e) => updateItem(idx, 'price', e.target.value)}
+                        className={`edit-input edit-input-price${Number(item.price) < 0 ? ' input-negative' : ''}`}
+                      />
+                    </td>
+                    <td>
+                      <select
+                        value={item.category || 'その他'}
+                        onChange={(e) => updateItem(idx, 'category', e.target.value)}
+                        className="edit-select"
                         style={CATEGORY_STYLES[item.category] || CATEGORY_STYLES['その他']}
                       >
-                        {item.category}
-                      </span>
+                        {CATEGORIES.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <button
+                        className="btn-icon-remove"
+                        onClick={() => removeItem(idx)}
+                        title="削除"
+                      >
+                        ✕
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
 
+            {/* 合計（自動計算） */}
+            <div className="calc-total">
+              <span>合計（自動計算）</span>
+              <span className="calc-total-amount">¥{calcTotal.toLocaleString()}</span>
+            </div>
+
+            {/* アクションボタン */}
             <div className="result-actions">
               <button className="btn btn-success" onClick={handleAdd}>
                 ✅ 家計簿に追加

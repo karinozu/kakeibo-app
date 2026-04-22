@@ -70,7 +70,7 @@ function App() {
       </nav>
 
       <main className="app-main">
-        {activeTab === 'upload'  && <ReceiptUpload onReceiptAdded={addReceipt} />}
+        {activeTab === 'upload'  && <ReceiptUpload onReceiptAdded={addReceipt} receipts={receipts} />}
         {activeTab === 'list'    && <ExpenseList receipts={receipts} onDelete={deleteReceipt} />}
         {activeTab === 'charts'  && <Charts receipts={receipts} />}
         {activeTab === 'summary' && <Summary receipts={receipts} />}

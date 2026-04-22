@@ -295,3 +295,101 @@
   text-align: right;
   color: #2c3e50;
 }
+
+/* ========== バリデーション警告 ========== */
+.validation-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+.validation-error {
+  background: #fff0f0;
+  border: 1px solid #f5a5a5;
+  color: #c0392b;
+}
+.validation-duplicate {
+  background: #fffbea;
+  border: 1px solid #f0c040;
+  color: #856404;
+}
+
+/* ========== 編集フィールド（日付・店舗） ========== */
+.edit-fields { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.edit-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.edit-row label {
+  min-width: 90px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #555;
+}
+.edit-input {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.edit-input:focus { border-color: #3498db; }
+.edit-input-name { width: 100%; }
+.edit-input-price { width: 90px; text-align: right; }
+.input-negative {
+  border-color: #e74c3c !important;
+  background: #fff5f5;
+  color: #c0392b;
+}
+
+/* ========== 商品テーブル操作 ========== */
+.edit-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.edit-table-header h4 { margin: 0; font-size: 0.95rem; color: #2c3e50; }
+
+.edit-select {
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.btn-icon-remove {
+  background: none;
+  border: none;
+  color: #e74c3c;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: background 0.15s;
+}
+.btn-icon-remove:hover { background: #fff0f0; }
+
+/* ========== 自動計算合計 ========== */
+.calc-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f0f7ff;
+  border-radius: 8px;
+  margin-top: 12px;
+  font-size: 0.95rem;
+  color: #2c3e50;
+  font-weight: 600;
+}
+.calc-total-amount { font-size: 1.2rem; color: #2980b9; }
