@@ -10,8 +10,8 @@ function Summary({ receipts }) {
       receipt.items?.forEach((item) => {
         const price = item.price || 0;
         categoryTotals[item.category] = (categoryTotals[item.category] || 0) + price;
-        grandTotal += price;
       });
+      grandTotal += receipt.total || 0;
     });
 
     // 金額が多い順にソート

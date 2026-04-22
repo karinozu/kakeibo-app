@@ -62,7 +62,7 @@ function App() {
             onClick={() => setActiveTab(tab.id)}
           >
             {tab.label}
-            {tab.id === 'list' && receipts.length > 0 && (
+            {tab.id === 'list' && activeTab !== 'list' && receipts.length > 0 && (
               <span className="tab-badge">{receipts.length}</span>
             )}
           </button>
