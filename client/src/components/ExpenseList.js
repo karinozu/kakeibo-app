@@ -24,8 +24,13 @@ function ExpenseList({ receipts, onDelete }) {
             {/* ヘッダー行（クリックで展開） */}
             <div className="receipt-header" onClick={() => toggle(receipt.id)}>
               <div className="receipt-meta">
+                <span className={`doc-type-badge ${receipt.documentType === 'invoice' ? 'doc-invoice' : 'doc-receipt'}`}>
+                  {receipt.documentType === 'invoice' ? '📋 請求明細' : '🧾 レシート'}
+                </span>
                 <span className="receipt-date">📅 {receipt.date || '日付不明'}</span>
-                <span className="receipt-store">🏪 {receipt.store || '店舗不明'}</span>
+                <span className="receipt-store">
+                  {receipt.documentType === 'invoice' ? '🏢' : '🏪'} {receipt.store || '不明'}
+                </span>
               </div>
               <div className="receipt-total">
                 <span>¥{receipt.total?.toLocaleString()}</span>
@@ -36,6 +41,13 @@ function ExpenseList({ receipts, onDelete }) {
             {/* 展開時：商品一覧 */}
             {expandedId === receipt.id && (
               <div className="receipt-detail">
+                {/* 請求明細専用フィールド */}
+                {receipt.documentType === 'invoice' && (receipt.invoiceNumber || receipt.dueDate) && (
+                  <div className="invoice-meta">
+                    {receipt.invoiceNumber && <span>🔢 請求書番号：{receipt.invoiceNumber}</span>}
+                    {receipt.dueDate && <span>⏰ 支払期限：{receipt.dueDate}</span>}
+                  </div>
+                )}
                 <table className="items-table">
                   <thead>
                     <tr>

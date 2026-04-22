@@ -29,42 +29,48 @@ app.post('/api/analyze-receipt', upload.single('receipt'), async (req, res) => {
   }
 
   // サポート形式の確認
-  const supportedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  const supportedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
   if (!supportedTypes.includes(req.file.mimetype)) {
-    return res.status(400).json({ error: 'JPEG・PNG・GIF・WebP形式の画像をアップロードしてください' });
+    return res.status(400).json({ error: 'JPEG・PNG・GIF・WebP・PDF形式のファイルをアップロードしてください' });
   }
 
-  const imageData = req.file.buffer.toString('base64');
+  const fileData = req.file.buffer.toString('base64');
   const mediaType = req.file.mimetype;
+  const isPdf = mediaType === 'application/pdf';
+
+  // PDF は document ブロック、画像は image ブロックで送信
+  const fileContentBlock = isPdf
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: fileData } }
+    : { type: 'image',    source: { type: 'base64', media_type: mediaType,          data: fileData } };
 
   try {
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
+      max_tokens: 1500,
       messages: [
         {
           role: 'user',
           content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: mediaType, data: imageData },
-            },
+            fileContentBlock,
             {
               type: 'text',
-              text: `このレシート画像を読み取り、以下のJSON形式のみで返してください。余分な説明は不要です。
+              text: `このファイル（レシートまたは請求明細書）を読み取り、以下のJSON形式のみで返してください。余分な説明は不要です。
 
 {
-  "date": "YYYY-MM-DD形式の日付（読み取れない場合はnull）",
-  "store": "店舗名（読み取れない場合はnull）",
+  "documentType": "receipt または invoice（レシートなら receipt、請求明細・請求書なら invoice）",
+  "date": "YYYY-MM-DD形式の発行日・購入日（読み取れない場合はnull）",
+  "dueDate": "YYYY-MM-DD形式の支払期限（請求書の場合。ない場合はnull）",
+  "invoiceNumber": "請求書番号・伝票番号（ある場合。ない場合はnull）",
+  "store": "店舗名・請求元会社名（読み取れない場合はnull）",
   "items": [
-    {"name": "商品名", "price": 税抜き金額（数値）, "category": "カテゴリ"}
+    {"name": "商品名・サービス名", "price": 税抜き金額（数値）, "category": "カテゴリ"}
   ],
-  "tax": 消費税合計（数値。レシートに記載がない場合は0）,
+  "tax": 消費税合計（数値。記載がない場合は0）,
   "total": 税込み合計金額（数値）
 }
 
 - itemsのpriceは税抜き金額を記載してください。税抜き金額が読み取れない場合は税込み金額を記載してください。
-- taxはレシートに記載されている消費税の合計金額（8%分と10%分がある場合は合算）を記載してください。
+- taxは消費税の合計金額（8%分と10%分がある場合は合算）を記載してください。
 - totalは税込みの合計金額を記載してください。
 - カテゴリは必ず以下から1つ選択してください：
   食費（食料品・飲料）、日用品（洗剤・衛生用品・生活雑貨）、外食（レストラン・カフェ・テイクアウト）、交通費（電車・バス・タクシー）、医療費（薬・病院）、娯楽（映画・書籍・ゲーム）、その他

@@ -5,9 +5,9 @@ import { CATEGORY_STYLES, CATEGORIES } from '../constants';
 function ReceiptUpload({ onReceiptAdded, receipts }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [isPdf, setIsPdf] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  // 編集可能な読み取り結果（手修正用）
   const [editableResult, setEditableResult] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -16,16 +16,14 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
     if (!data) return [];
     const warns = [];
 
-    // 負の金額チェック
     const negItems = (data.items || []).filter((i) => Number(i.price) < 0);
     if (negItems.length > 0) {
       warns.push({
         type: 'error',
-        message: `金額が負の値の商品があります：${negItems.map((i) => i.name || '(名称不明)').join('、')}`,
+        message: `金額が負の値の明細があります：${negItems.map((i) => i.name || '(名称不明)').join('、')}`,
       });
     }
 
-    // 重複レシートチェック（同一日付 & 同一合計金額）
     const calcTotal = (data.items || []).reduce((s, i) => s + (Number(i.price) || 0), 0);
     const dup = (receipts || []).find(
       (r) => r.date === data.date && r.date && Math.round(r.total) === Math.round(calcTotal)
@@ -33,14 +31,13 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
     if (dup) {
       warns.push({
         type: 'duplicate',
-        message: `同じ日付・合計金額のレシートが既に登録されています（${data.date}、¥${calcTotal.toLocaleString()}）`,
+        message: `同じ日付・合計金額の書類が既に登録されています（${data.date}、¥${calcTotal.toLocaleString()}）`,
       });
     }
 
     return warns;
   };
 
-  // 現在の警告（レンダリング時に毎回計算）
   const warnings = computeWarnings(editableResult);
 
   // ========== ファイル選択 ==========
@@ -50,9 +47,16 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
     setFile(selected);
     setError('');
     setEditableResult(null);
-    const reader = new FileReader();
-    reader.onload = (ev) => setPreview(ev.target.result);
-    reader.readAsDataURL(selected);
+
+    if (selected.type === 'application/pdf') {
+      setIsPdf(true);
+      setPreview(null);
+    } else {
+      setIsPdf(false);
+      const reader = new FileReader();
+      reader.onload = (ev) => setPreview(ev.target.result);
+      reader.readAsDataURL(selected);
+    }
   };
 
   // ========== API呼び出し ==========
@@ -66,10 +70,9 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
       const response = await axios.post('/api/analyze-receipt', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      // 読み取り結果を編集可能な状態にコピー
       setEditableResult({ ...response.data, items: response.data.items?.map((i) => ({ ...i })) || [] });
     } catch (err) {
-      setError(err.response?.data?.error || 'レシートの読み取りに失敗しました。');
+      setError(err.response?.data?.error || '読み取りに失敗しました。');
     } finally {
       setLoading(false);
     }
@@ -82,16 +85,11 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
   const updateItem = (idx, field, value) =>
     setEditableResult((prev) => ({
       ...prev,
-      items: prev.items.map((item, i) =>
-        i === idx ? { ...item, [field]: field === 'price' ? value : value } : item
-      ),
+      items: prev.items.map((item, i) => (i === idx ? { ...item, [field]: value } : item)),
     }));
 
   const removeItem = (idx) =>
-    setEditableResult((prev) => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== idx),
-    }));
+    setEditableResult((prev) => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }));
 
   const addItem = () =>
     setEditableResult((prev) => ({
@@ -111,31 +109,39 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
   const reset = () => {
     setFile(null);
     setPreview(null);
+    setIsPdf(false);
     setEditableResult(null);
     setError('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // 小計（アイテムの合計）と税込み合計
   const calcSubtotal = editableResult
     ? editableResult.items.reduce((s, i) => s + (Number(i.price) || 0), 0)
     : 0;
   const calcTotal = calcSubtotal + (editableResult ? (Number(editableResult.tax) || 0) : 0);
 
+  const isInvoice = editableResult?.documentType === 'invoice';
+
   return (
     <div className="upload-container">
       <div className="upload-card">
-        <h2>レシートをアップロード</h2>
+        <h2>書類をアップロード</h2>
 
-        {/* 画像選択ゾーン */}
+        {/* ファイル選択ゾーン */}
         <div className="upload-zone" onClick={() => fileInputRef.current?.click()}>
           {preview ? (
-            <img src={preview} alt="レシートプレビュー" className="preview-image" />
+            <img src={preview} alt="プレビュー" className="preview-image" />
+          ) : isPdf ? (
+            <div className="upload-placeholder">
+              <span className="upload-icon">📄</span>
+              <p className="pdf-filename">{file?.name}</p>
+              <p className="upload-hint">PDFファイルが選択されています</p>
+            </div>
           ) : (
             <div className="upload-placeholder">
               <span className="upload-icon">📷</span>
-              <p>クリックして画像を選択</p>
-              <p className="upload-hint">JPEG・PNG・GIF・WebP対応（最大10MB）</p>
+              <p>クリックしてファイルを選択</p>
+              <p className="upload-hint">レシート画像（JPEG・PNG・WebP）または請求明細PDF（最大10MB）</p>
             </div>
           )}
         </div>
@@ -143,7 +149,7 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp"
+          accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
           onChange={handleFileChange}
           style={{ display: 'none' }}
         />
@@ -151,29 +157,32 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
         {/* 読み取りボタン */}
         {file && !editableResult && (
           <button className="btn btn-primary" onClick={handleUpload} disabled={loading}>
-            {loading ? '⏳ 読み取り中...' : '🔍 レシートを読み取る'}
+            {loading ? '⏳ 読み取り中...' : '🔍 内容を読み取る'}
           </button>
         )}
 
-        {/* 読み取りエラー */}
         {error && <p className="error-message">⚠️ {error}</p>}
 
         {/* ========== 読み取り結果（編集可能） ========== */}
         {editableResult && (
           <div className="result-card">
-            <h3>✅ 読み取り完了 — 内容を確認・修正してください</h3>
+            <div className="result-header">
+              <h3>✅ 読み取り完了 — 内容を確認・修正してください</h3>
+              <span className={`doc-type-badge ${isInvoice ? 'doc-invoice' : 'doc-receipt'}`}>
+                {isInvoice ? '📋 請求明細' : '🧾 レシート'}
+              </span>
+            </div>
 
-            {/* バリデーション警告 */}
             {warnings.map((w, i) => (
               <div key={i} className={`validation-warning validation-${w.type}`}>
                 {w.type === 'error' ? '🚨' : '⚠️'} {w.message}
               </div>
             ))}
 
-            {/* 日付・店舗の編集 */}
+            {/* 基本フィールド */}
             <div className="edit-fields">
               <div className="edit-row">
-                <label>📅 日付</label>
+                <label>📅 {isInvoice ? '発行日' : '日付'}</label>
                 <input
                   type="date"
                   value={editableResult.date || ''}
@@ -182,20 +191,45 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
                 />
               </div>
               <div className="edit-row">
-                <label>🏪 店舗名</label>
+                <label>{isInvoice ? '🏢 請求元' : '🏪 店舗名'}</label>
                 <input
                   type="text"
                   value={editableResult.store || ''}
-                  placeholder="店舗名を入力"
+                  placeholder={isInvoice ? '請求元を入力' : '店舗名を入力'}
                   onChange={(e) => updateField('store', e.target.value)}
                   className="edit-input"
                 />
               </div>
+
+              {/* 請求明細専用フィールド */}
+              {isInvoice && (
+                <>
+                  <div className="edit-row">
+                    <label>🔢 請求書番号</label>
+                    <input
+                      type="text"
+                      value={editableResult.invoiceNumber || ''}
+                      placeholder="請求書番号を入力"
+                      onChange={(e) => updateField('invoiceNumber', e.target.value)}
+                      className="edit-input"
+                    />
+                  </div>
+                  <div className="edit-row">
+                    <label>⏰ 支払期限</label>
+                    <input
+                      type="date"
+                      value={editableResult.dueDate || ''}
+                      onChange={(e) => updateField('dueDate', e.target.value)}
+                      className="edit-input"
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
-            {/* 商品一覧（編集可能） */}
+            {/* 明細一覧 */}
             <div className="edit-table-header">
-              <h4>商品一覧</h4>
+              <h4>{isInvoice ? '請求明細' : '商品一覧'}</h4>
               <button className="btn btn-secondary btn-sm" onClick={addItem}>
                 ＋ 行を追加
               </button>
@@ -204,7 +238,7 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
             <table className="items-table">
               <thead>
                 <tr>
-                  <th>商品名</th>
+                  <th>{isInvoice ? 'サービス・品目' : '商品名'}</th>
                   <th>金額</th>
                   <th>カテゴリ</th>
                   <th></th>
@@ -217,7 +251,7 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
                       <input
                         type="text"
                         value={item.name || ''}
-                        placeholder="商品名"
+                        placeholder={isInvoice ? 'サービス名' : '商品名'}
                         onChange={(e) => updateItem(idx, 'name', e.target.value)}
                         className="edit-input edit-input-name"
                       />
@@ -243,11 +277,7 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
                       </select>
                     </td>
                     <td>
-                      <button
-                        className="btn-icon-remove"
-                        onClick={() => removeItem(idx)}
-                        title="削除"
-                      >
+                      <button className="btn-icon-remove" onClick={() => removeItem(idx)} title="削除">
                         ✕
                       </button>
                     </td>
@@ -268,7 +298,7 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
               />
             </div>
 
-            {/* 合計（小計＋消費税） */}
+            {/* 合計 */}
             <div className="calc-total">
               <span>小計 ¥{calcSubtotal.toLocaleString()} ＋ 消費税 ¥{(Number(editableResult.tax) || 0).toLocaleString()}</span>
               <span className="calc-total-amount">¥{calcTotal.toLocaleString()}</span>
