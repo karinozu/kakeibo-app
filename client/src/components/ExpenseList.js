@@ -62,6 +62,12 @@ function ExpenseList({ receipts, onDelete }) {
                   </tbody>
                 </table>
 
+                {receipt.tax > 0 && (
+                  <div className="receipt-tax">
+                    消費税：¥{receipt.tax?.toLocaleString()}
+                  </div>
+                )}
+
                 <button
                   className="btn btn-danger btn-sm"
                   onClick={() => {

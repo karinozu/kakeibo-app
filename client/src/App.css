@@ -393,3 +393,10 @@
   font-weight: 600;
 }
 .calc-total-amount { font-size: 1.2rem; color: #2980b9; }
+
+.receipt-tax {
+  font-size: 0.85rem;
+  color: #777;
+  text-align: right;
+  padding: 4px 0 8px;
+}

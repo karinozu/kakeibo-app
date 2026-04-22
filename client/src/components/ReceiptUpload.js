@@ -102,9 +102,9 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
   // ========== 家計簿に追加 ==========
   const handleAdd = () => {
     if (!editableResult) return;
-    // 合計はアイテムの合計から自動計算
-    const calcTotal = editableResult.items.reduce((s, i) => s + (Number(i.price) || 0), 0);
-    onReceiptAdded({ ...editableResult, total: calcTotal });
+    const subtotal = editableResult.items.reduce((s, i) => s + (Number(i.price) || 0), 0);
+    const tax = Number(editableResult.tax) || 0;
+    onReceiptAdded({ ...editableResult, tax, total: subtotal + tax });
     reset();
   };
 
@@ -116,10 +116,11 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // 合計（アイテムの合計から自動計算）
-  const calcTotal = editableResult
+  // 小計（アイテムの合計）と税込み合計
+  const calcSubtotal = editableResult
     ? editableResult.items.reduce((s, i) => s + (Number(i.price) || 0), 0)
     : 0;
+  const calcTotal = calcSubtotal + (editableResult ? (Number(editableResult.tax) || 0) : 0);
 
   return (
     <div className="upload-container">
@@ -255,9 +256,21 @@ function ReceiptUpload({ onReceiptAdded, receipts }) {
               </tbody>
             </table>
 
-            {/* 合計（自動計算） */}
+            {/* 消費税 */}
+            <div className="edit-row" style={{ marginTop: 12 }}>
+              <label>🧾 消費税</label>
+              <input
+                type="number"
+                value={editableResult.tax ?? 0}
+                onChange={(e) => updateField('tax', e.target.value)}
+                className="edit-input edit-input-price"
+                min="0"
+              />
+            </div>
+
+            {/* 合計（小計＋消費税） */}
             <div className="calc-total">
-              <span>合計（自動計算）</span>
+              <span>小計 ¥{calcSubtotal.toLocaleString()} ＋ 消費税 ¥{(Number(editableResult.tax) || 0).toLocaleString()}</span>
               <span className="calc-total-amount">¥{calcTotal.toLocaleString()}</span>
             </div>
 
