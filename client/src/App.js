@@ -9,6 +9,7 @@ import './App.css';
 function App() {
   const [receipts, setReceipts] = useState([]);
   const [activeTab, setActiveTab] = useState('upload');
+  const [listVisited, setListVisited] = useState(false);
 
   // ローカルストレージからデータを読み込む
   useEffect(() => {
@@ -59,10 +60,10 @@ function App() {
           <button
             key={tab.id}
             className={`tab-btn${activeTab === tab.id ? ' active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => { setActiveTab(tab.id); if (tab.id === 'list') setListVisited(true); }}
           >
             {tab.label}
-            {tab.id === 'list' && activeTab !== 'list' && receipts.length > 0 && (
+            {tab.id === 'list' && !listVisited && receipts.length > 0 && (
               <span className="tab-badge">{receipts.length}</span>
             )}
           </button>
