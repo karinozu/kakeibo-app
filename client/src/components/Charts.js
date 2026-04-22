@@ -49,15 +49,14 @@ function Charts({ receipts }) {
     );
   }
 
-  // 円グラフのデータ
+  // 円グラフのデータ（ラベル・値・色を同じ配列から生成してズレを防ぐ）
+  const pieEntries = Object.entries(categoryTotals);
   const pieData = {
-    labels: Object.keys(categoryTotals),
+    labels: pieEntries.map(([c]) => c),
     datasets: [
       {
-        data: Object.values(categoryTotals),
-        backgroundColor: Object.keys(categoryTotals).map(
-          (c) => CATEGORY_COLORS[c] || '#C9CBCF'
-        ),
+        data: pieEntries.map(([, v]) => v),
+        backgroundColor: pieEntries.map(([c]) => CATEGORY_COLORS[c] || '#95a5a6'),
         borderWidth: 2,
         borderColor: '#fff',
       },
@@ -126,9 +125,9 @@ function Charts({ receipts }) {
 
   return (
     <div className="charts-container">
-      {Object.keys(categoryTotals).length > 0 && (
+      {pieEntries.length > 0 && (
         <div className="chart-card">
-          <Pie data={pieData} options={pieOptions} />
+          <Pie key={pieEntries.map(([c]) => c).join(',')} data={pieData} options={pieOptions} />
         </div>
       )}
       {Object.keys(monthlyTotals).length > 0 && (
