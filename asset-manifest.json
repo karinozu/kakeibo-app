@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/kakeibo-app/static/css/main.7798c398.css",
+    "main.js": "/kakeibo-app/static/js/main.d06fa466.js",
+    "index.html": "/kakeibo-app/index.html",
+    "main.7798c398.css.map": "/kakeibo-app/static/css/main.7798c398.css.map",
+    "main.d06fa466.js.map": "/kakeibo-app/static/js/main.d06fa466.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.7798c398.css",
+    "static/js/main.d06fa466.js"
+  ]
+}
